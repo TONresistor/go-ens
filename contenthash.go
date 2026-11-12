@@ -63,6 +63,18 @@ func StringToContenthash(text string) ([]byte, error) {
 
 	res := make([]byte, 0)
 	switch codec {
+	case "adnl", "tonstorage":
+		decoded, err := hex.DecodeString(data)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid hex")
+		}
+		if len(decoded) != 32 {
+			return nil, fmt.Errorf("%s identifier should be 32 bytes, got %d", codec, len(decoded))
+		}
+		if codec == "tonstorage" {
+			codec = "ton-storage"
+		}
+		return multicodec.AddCodec(codec, decoded)
 	case "ipfs":
 		content, err := cid.Parse(data)
 		if err != nil {
@@ -185,6 +197,14 @@ func ContenthashToString(bytes []byte) (string, error) {
 	}
 
 	switch codecName {
+	case "adnl", "ton-storage":
+		if len(data) != 32 {
+			return "", fmt.Errorf("%s identifier should be 32 bytes, got %d", codecName, len(data))
+		}
+		if codecName == "ton-storage" {
+			codecName = "tonstorage"
+		}
+		return fmt.Sprintf("%s://%x", codecName, data), nil
 	case "ipfs-ns":
 		thisCID, err := cid.Parse(data)
 		if err != nil {

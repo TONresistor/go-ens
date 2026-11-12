@@ -17,6 +17,7 @@ package ens
 import (
 	"encoding/hex"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -164,6 +165,47 @@ func TestContenthash(t *testing.T) {
 				res, err := ContenthashToString(bin)
 				require.Nil(t, err, "unexpected error decoding content hash")
 				assert.Equal(t, test.res, res, "incorrect decoding")
+			}
+		})
+	}
+}
+
+func TestTONContenthash(t *testing.T) {
+	const id = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+	tests := []struct {
+		scheme string
+		prefix string
+	}{
+		{scheme: "adnl", prefix: "90b2da05"},
+		{scheme: "tonstorage", prefix: "90b2de05"},
+	}
+	for _, test := range tests {
+		t.Run(test.scheme, func(t *testing.T) {
+			for _, input := range []string{
+				test.scheme + "://" + id,
+				test.scheme + "://" + strings.ToUpper(id),
+				"/" + test.scheme + "/" + id,
+			} {
+				encoded, err := StringToContenthash(input)
+				require.NoError(t, err, "input: %s", input)
+				assert.Equal(t, _hexStr(test.prefix+id), encoded)
+				decoded, err := ContenthashToString(encoded)
+				require.NoError(t, err)
+				assert.Equal(t, test.scheme+"://"+id, decoded)
+			}
+			for _, invalid := range []string{
+				"",
+				strings.Repeat("ab", 31),
+				strings.Repeat("ab", 33),
+				strings.Repeat("a", 63),
+				strings.Repeat("g", 64),
+			} {
+				_, err := StringToContenthash(test.scheme + "://" + invalid)
+				require.Error(t, err, "input: %q", invalid)
+			}
+			for _, size := range []int{0, 31, 33} {
+				_, err := ContenthashToString(append(_hexStr(test.prefix), make([]byte, size)...))
+				require.Error(t, err, "payload size: %d", size)
 			}
 		})
 	}
